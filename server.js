@@ -8,12 +8,16 @@ const app = express();
 const PORT = 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
 
+// Initialize Database structure if it doesn't exist
 async function initDB() {
     try {
         if (!await fs.pathExists(DB_FILE)) {
             await fs.writeJson(DB_FILE, { users: [], orders: [] });
+            console.log("📦 New Database created.");
         }
-    } catch (err) { console.error("DB Init Error:", err); }
+    } catch (err) {
+        console.error("Failed to initialize database:", err);
+    }
 }
 initDB();
 
@@ -22,29 +26,42 @@ const saveData = async (data) => await fs.writeJson(DB_FILE, data, { spaces: 2 }
 
 app.use(cors());
 app.use(bodyParser.json());
+// Serves images from the 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- AUTH ---
+// --- AUTH ENDPOINTS ---
 app.post('/api/register', async (req, res) => {
     const { name, phone } = req.body;
     const data = await getData();
-    if (data.users.find(u => u.phone === phone.trim())) return res.status(400).json({ error: "Already registered!" });
-    const newUser = { name: name.trim(), phone: phone.trim() };
+    const cleanPhone = phone.trim();
+    
+    if (data.users.find(u => u.phone === cleanPhone)) {
+        return res.status(400).json({ error: "Phone number already registered!" });
+    }
+
+    const newUser = { name: name.trim(), phone: cleanPhone };
     data.users.push(newUser);
     await saveData(data);
     res.status(201).json({ user: newUser });
 });
 
 app.post('/api/login', async (req, res) => {
+    const { phone } = req.body;
     const data = await getData();
-    const user = data.users.find(u => u.phone === req.body.phone.trim());
-    user ? res.json({ user }) : res.status(401).json({ error: "User not found" });
+    const user = data.users.find(u => u.phone === phone.trim());
+    
+    if (user) {
+        res.json({ user });
+    } else {
+        res.status(401).json({ error: "User not found. Please Register." });
+    }
 });
 
-// --- ORDERS ---
+// --- ORDER ENDPOINTS ---
 app.post('/api/orders', async (req, res) => {
     const { phone, itemName, price } = req.body;
     const data = await getData();
+    
     const user = data.users.find(u => u.phone === phone.trim());
     if (!user) return res.status(403).json({ error: "Unauthorized" });
 
@@ -54,10 +71,11 @@ app.post('/api/orders', async (req, res) => {
         customerPhone: user.phone, 
         itemName, 
         price, 
-        status: 'pending', // Status can be: pending, confirmed, out-of-stock
+        status: 'pending', // pending, confirmed, out-of-stock
         feedback: "", 
         timestamp: new Date().toLocaleString('en-GB') 
     };
+    
     data.orders.unshift(newOrder);
     await saveData(data);
     res.status(201).json(newOrder);
@@ -68,7 +86,7 @@ app.get('/api/my-orders/:phone', async (req, res) => {
     res.json(data.orders.filter(o => o.customerPhone === req.params.phone));
 });
 
-// --- ADMIN ACTIONS ---
+// --- ADMIN ENDPOINTS ---
 app.post('/api/admin/verify', async (req, res) => {
     if (req.body.password === "G1234") {
         const data = await getData();
@@ -76,18 +94,31 @@ app.post('/api/admin/verify', async (req, res) => {
     } else res.status(401).json({ success: false });
 });
 
-// Update Order Status (Confirm or Out of Stock)
+// Update status (Confirm or Out of Stock)
 app.patch('/api/orders/:id/status', async (req, res) => {
     const { status } = req.body;
     const data = await getData();
     const order = data.orders.find(o => o.id === parseInt(req.params.id));
+    if (order) { 
+        order.status = status; 
+        await saveData(data); 
+        res.json({ success: true }); 
+    } else res.status(404).send();
+});
+
+// Feedback update
+app.patch('/api/orders/:id/feedback', async (req, res) => {
+    const { feedback } = req.body;
+    const data = await getData();
+    const order = data.orders.find(o => o.id === parseInt(req.params.id));
     if (order) {
-        order.status = status;
+        order.feedback = feedback;
         await saveData(data);
         res.json({ success: true });
     } else res.status(404).send();
 });
 
+// Admin Delete Order
 app.delete('/api/orders/:id', async (req, res) => {
     const data = await getData();
     data.orders = data.orders.filter(o => o.id !== parseInt(req.params.id));
@@ -95,14 +126,4 @@ app.delete('/api/orders/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-app.patch('/api/orders/:id/feedback', async (req, res) => {
-    const data = await getData();
-    const order = data.orders.find(o => o.id === parseInt(req.params.id));
-    if (order) {
-        order.feedback = req.body.feedback;
-        await saveData(data);
-        res.json({ success: true });
-    } else res.status(404).send();
-});
-
-app.listen(PORT, () => console.log(`🚀 Server on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 VoltEdge Server running on http://localhost:${PORT}`));
