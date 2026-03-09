@@ -26,7 +26,9 @@ const saveData = async (data) => await fs.writeJson(DB_FILE, data, { spaces: 2 }
 
 app.use(cors());
 app.use(bodyParser.json());
-// Ensure your images (ssd-256.jpg, HP-Pavilion-15.jpg, etc.) are in this folder
+
+// Serve static files from the 'public' folder
+// Ensure your images like 'HP-Pavilion-15.jpg' are inside this folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- AUTH ENDPOINTS ---
@@ -69,13 +71,19 @@ app.post('/api/orders', async (req, res) => {
 
     const newOrder = { 
         id: Date.now(), 
-        customerName: user.name, // Added for Admin Dashboard
-        customerPhone: user.phone, // Added for Admin Dashboard
+        customerName: user.name, 
+        customerPhone: user.phone, 
         itemName, 
         price, 
         confirmed: false, 
-        feedback: "", // Initialize empty feedback
-        timestamp: new Date().toLocaleString('en-GB') 
+        feedback: "", 
+        timestamp: new Date().toLocaleString('en-GB', { 
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        }) 
     };
     
     data.orders.unshift(newOrder);
@@ -83,23 +91,24 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json(newOrder);
 });
 
-// Add feedback/comment to an order
+// Endpoint for customers to leave comments
 app.patch('/api/orders/:id/feedback', async (req, res) => {
     const { feedback } = req.body;
     const data = await getData();
     const order = data.orders.find(o => o.id === parseInt(req.params.id));
     
-    if (order && order.confirmed) {
+    if (order) {
         order.feedback = feedback;
         await saveData(data);
         res.json({ success: true });
     } else {
-        res.status(400).json({ error: "Order not found or not confirmed yet" });
+        res.status(404).json({ error: "Order not found" });
     }
 });
 
 app.get('/api/my-orders/:phone', async (req, res) => {
     const data = await getData();
+    // Match against customerPhone to align with the updated schema
     const myOrders = data.orders.filter(o => o.customerPhone === req.params.phone);
     res.json(myOrders);
 });
@@ -107,7 +116,6 @@ app.get('/api/my-orders/:phone', async (req, res) => {
 // --- ADMIN ENDPOINTS ---
 
 app.post('/api/admin/verify', async (req, res) => {
-    // Updated password to match your request
     if (req.body.password === "G1234") {
         const data = await getData();
         res.json({ success: true, orders: data.orders });
