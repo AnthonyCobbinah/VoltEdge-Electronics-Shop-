@@ -9,115 +9,136 @@
     <style>
         [x-cloak] { display: none !important; }
         .hardware-img { width: 100%; height: 160px; object-fit: contain; }
-        .admin-violet { background-color: #7c3aed; } /* Violet 600 */
     </style>
 </head>
 <body class="bg-slate-50 font-sans" x-data="voltEdgeApp()" x-init="init()">
 
     <nav class="bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-        <h1 class="text-xl font-black italic">VOLTEDGE</h1>
+        <div class="flex items-center gap-2">
+            <span class="bg-violet-600 px-2 py-1 rounded font-black">VE</span>
+            <h1 class="text-xl font-black italic">VOLTEDGE</h1>
+        </div>
         <div class="flex gap-4">
-            <template x-if="user"><button @click="logout()" class="text-xs font-bold text-red-400">LOGOUT</button></template>
-            <button @click="showAdminModal = true" class="text-xs bg-violet-600 px-3 py-1 rounded font-bold">ADMIN</button>
+            <template x-if="user"><button @click="logout()" class="text-xs font-bold text-red-400 border border-red-400/20 px-2 py-1 rounded">LOGOUT</button></template>
+            <button @click="showAdminModal = true" class="text-xs bg-violet-600 px-3 py-1 rounded font-black uppercase tracking-widest">Admin</button>
         </div>
     </nav>
 
-    <div class="container mx-auto p-4">
-        <div x-show="user && view === 'shop'" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <div x-show="!user && view === 'shop'" class="max-w-md mx-auto mt-12">
+            <div class="bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-200">
+                <div class="flex border-b mb-8">
+                    <button @click="authMode = 'login'" :class="authMode === 'login' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400'" class="flex-1 pb-4 font-black uppercase text-xs transition-all border-b-2">Login</button>
+                    <button @click="authMode = 'register'" :class="authMode === 'register' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400'" class="flex-1 pb-4 font-black uppercase text-xs transition-all border-b-2">Register</button>
+                </div>
+                <div class="space-y-4">
+                    <div x-show="authMode === 'register'">
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Full Name</label>
+                        <input type="text" x-model="authForm.name" class="w-full bg-slate-50 border-2 p-4 rounded-2xl outline-none focus:border-violet-600 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Phone Number</label>
+                        <input type="tel" x-model="authForm.phone" class="w-full bg-slate-50 border-2 p-4 rounded-2xl outline-none focus:border-violet-600 font-bold">
+                    </div>
+                    <button @click="handleAuth()" class="w-full bg-violet-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-violet-700 transition-all" x-text="authMode === 'register' ? 'Create Account' : 'Sign In'"></button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="user && view === 'shop'" x-cloak class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <template x-for="item in products">
-                    <div class="bg-white p-4 rounded-3xl border shadow-sm">
-                        <img :src="'/' + encodeURIComponent(item.image)" class="hardware-img mb-4">
-                        <h3 class="font-bold text-sm" x-text="item.name"></h3>
-                        <p class="text-violet-600 font-black mb-3" x-text="'GH₵ ' + item.price"></p>
-                        <button @click="placeOrder(item)" class="w-full bg-slate-900 text-white py-2 rounded-xl text-xs font-bold">ORDER</button>
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all">
+                        <div class="h-40 flex items-center justify-center mb-4">
+                            <img :src="'/' + encodeURIComponent(item.image)" class="hardware-img" onerror="this.src='https://via.placeholder.com/200?text=Hardware'">
+                        </div>
+                        <h3 class="font-black text-slate-800 text-sm mb-1" x-text="item.name"></h3>
+                        <p class="text-violet-600 font-black text-lg mb-4" x-text="'GH₵ ' + item.price"></p>
+                        <button @click="placeOrder(item)" class="w-full bg-slate-900 text-white py-3 rounded-xl text-xs font-black">ORDER NOW</button>
                     </div>
                 </template>
             </div>
 
-            <div class="lg:col-span-1 bg-white p-6 rounded-3xl border shadow-sm h-fit">
-                <h2 class="font-black text-xs mb-4 uppercase tracking-widest">My Orders</h2>
-                <div class="space-y-3">
+            <div class="lg:col-span-1 bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm h-fit">
+                <h2 class="font-black text-slate-900 mb-6 text-xs uppercase tracking-widest">My Order Status</h2>
+                <div class="space-y-4">
                     <template x-for="o in myOrders">
-                        <div class="p-3 rounded-xl border relative overflow-hidden" :class="o.status === 'out-of-stock' ? 'bg-red-50 border-red-200' : 'bg-slate-50'">
-                            <p class="text-[11px] font-bold" x-text="o.itemName"></p>
-                            
-                            <div class="mt-1">
-                                <span x-show="o.status === 'pending'" class="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">PENDING</span>
-                                <span x-show="o.status === 'confirmed'" class="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">CONFIRMED</span>
-                                <span x-show="o.status === 'out-of-stock'" class="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold">OUT OF STOCK</span>
+                        <div class="p-4 rounded-2xl border" :class="o.status === 'out-of-stock' ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'">
+                            <p class="text-[10px] font-black text-slate-800 mb-2 uppercase" x-text="o.itemName"></p>
+                            <div class="flex items-center gap-2">
+                                <span x-show="o.status === 'pending'" class="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-black">PENDING</span>
+                                <span x-show="o.status === 'confirmed'" class="text-[8px] bg-green-500 text-white px-2 py-0.5 rounded font-black">CONFIRMED</span>
+                                <span x-show="o.status === 'out-of-stock'" class="text-[8px] bg-red-600 text-white px-2 py-0.5 rounded font-black">OUT OF STOCK</span>
                             </div>
-
-                            <button x-show="o.status === 'confirmed' && !o.feedback" @click="leaveComment(o.id)" class="mt-2 text-[9px] text-violet-600 font-bold underline">Add Comment</button>
+                            <button x-show="o.status === 'confirmed' && !o.feedback" @click="leaveComment(o.id)" class="mt-3 block text-[9px] text-violet-600 font-bold underline uppercase">Add Feedback</button>
+                            <p x-show="o.feedback" class="mt-2 text-[9px] italic text-slate-500 border-t pt-2" x-text="'Note: ' + o.feedback"></p>
                         </div>
                     </template>
                 </div>
             </div>
         </div>
 
-        <div x-show="view === 'admin'" x-cloak class="bg-white rounded-[2rem] shadow-2xl border-4 border-violet-600 overflow-hidden">
-            <div class="admin-violet p-6 text-white flex justify-between items-center">
-                <div>
-                    <h2 class="text-2xl font-black italic">VIOLET ADMIN PANEL</h2>
-                    <p class="text-[10px] font-bold opacity-80 uppercase">Inventory & Order Management</p>
+        <div x-show="view === 'admin'" x-cloak class="max-w-6xl mx-auto">
+            <div class="bg-white rounded-[2.5rem] shadow-2xl border-4 border-violet-600 overflow-hidden">
+                <div class="bg-violet-600 p-8 text-white flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-black italic">ADMIN PANEL</h2>
+                        <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Manage Orders</p>
+                    </div>
+                    <button @click="view = 'shop'" class="bg-white text-violet-600 px-6 py-2 rounded-xl font-black text-xs">CLOSE</button>
                 </div>
-                <button @click="view = 'shop'" class="bg-white text-violet-600 px-4 py-2 rounded-lg font-black text-xs">EXIT</button>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-violet-50 text-violet-900 text-[11px] font-black uppercase">
+                                <th class="p-6">Customer</th>
+                                <th class="p-6">Item</th>
+                                <th class="p-6 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="o in allOrders" :key="o.id">
+                                <tr>
+                                    <td class="p-6">
+                                        <div class="font-black text-slate-900 text-lg" x-text="o.customerName"></div>
+                                        <div class="font-bold text-violet-600 text-sm" x-text="o.customerPhone"></div>
+                                    </td>
+                                    <td class="p-6">
+                                        <div class="font-bold text-xs" x-text="o.itemName"></div>
+                                        <div class="text-[10px] text-slate-400" x-text="o.timestamp"></div>
+                                    </td>
+                                    <td class="p-6 flex justify-center gap-2">
+                                        <button @click="updateStatus(o.id, 'confirmed')" class="bg-green-500 text-white px-3 py-2 rounded-lg text-[9px] font-bold">CONFIRM</button>
+                                        <button @click="updateStatus(o.id, 'out-of-stock')" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-[9px] font-bold uppercase">No Stock</button>
+                                        <button @click="deleteOrder(o.id)" class="bg-red-600 text-white px-3 py-2 rounded-lg text-[9px] font-bold">DELETE</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            <table class="w-full">
-                <thead>
-                    <tr class="bg-violet-50 text-violet-900 text-[10px] font-black uppercase">
-                        <th class="p-4 text-left">Customer (Phone)</th>
-                        <th class="p-4 text-left">Item</th>
-                        <th class="p-4 text-left">Status</th>
-                        <th class="p-4 text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-violet-100">
-                    <template x-for="o in allOrders" :key="o.id">
-                        <tr class="hover:bg-violet-50/50 transition">
-                            <td class="p-4">
-                                <div class="font-black text-slate-900 text-base" x-text="o.customerName"></div>
-                                <div class="font-bold text-violet-600 text-sm italic" x-text="o.customerPhone"></div>
-                            </td>
-                            <td class="p-4">
-                                <div class="text-xs font-bold" x-text="o.itemName"></div>
-                                <div class="text-[10px] text-slate-400" x-text="o.timestamp"></div>
-                            </td>
-                            <td class="p-4">
-                                <span :class="{
-                                    'bg-amber-100 text-amber-700': o.status === 'pending',
-                                    'bg-green-100 text-green-700': o.status === 'confirmed',
-                                    'bg-red-100 text-red-700': o.status === 'out-of-stock'
-                                }" class="text-[9px] font-black px-2 py-1 rounded uppercase" x-text="o.status"></span>
-                            </td>
-                            <td class="p-4">
-                                <div class="flex justify-center gap-2">
-                                    <button @click="updateStatus(o.id, 'confirmed')" class="bg-green-500 text-white p-2 rounded-lg text-[10px] font-bold">CONFIRM</button>
-                                    <button @click="updateStatus(o.id, 'out-of-stock')" class="bg-orange-500 text-white p-2 rounded-lg text-[10px] font-bold uppercase">No Stock</button>
-                                    <button @click="deleteOrder(o.id)" class="bg-red-600 text-white p-2 rounded-lg text-[10px] font-bold">DELETE</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
         </div>
     </div>
 
-    <div x-show="showAdminModal" x-cloak class="fixed inset-0 bg-slate-900/80 backdrop-blur flex items-center justify-center p-4 z-[100]">
-        <div class="bg-white p-8 rounded-[2rem] w-full max-w-xs text-center">
+    <div x-show="showAdminModal" x-cloak class="fixed inset-0 bg-slate-900/90 backdrop-blur flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white p-8 rounded-[2rem] w-full max-w-sm text-center">
             <h3 class="font-black mb-4">ADMIN ACCESS</h3>
-            <input type="password" x-model="adminPassInput" class="w-full border-2 p-3 rounded-xl mb-4 text-center font-black">
-            <button @click="adminLogin()" class="w-full bg-violet-600 text-white py-3 rounded-xl font-bold">LOGIN</button>
-            <button @click="showAdminModal = false" class="mt-2 text-xs text-slate-400">Cancel</button>
+            <input type="password" x-model="adminPassInput" class="w-full border-2 p-4 rounded-2xl mb-4 text-center text-2xl font-black outline-none focus:border-violet-600">
+            <div class="flex gap-2">
+                <button @click="showAdminModal = false" class="flex-1 bg-slate-100 py-4 rounded-xl font-bold text-xs">CANCEL</button>
+                <button @click="adminLogin()" class="flex-1 bg-violet-600 text-white py-4 rounded-xl font-bold text-xs">VERIFY</button>
+            </div>
         </div>
     </div>
 
     <script>
         function voltEdgeApp() {
             return {
-                view: 'shop', user: null, showAdminModal: false, adminPassInput: '',
+                view: 'shop', authMode: 'login', user: null,
+                authForm: {name: '', phone: ''},
+                showAdminModal: false, adminPassInput: '',
                 myOrders: [], allOrders: [],
                 products: [
                     {name:'HP Pavilion 15 Motherboard', price:1100, image: 'HP-Pavilion-15.jpg'},
@@ -133,6 +154,21 @@
                     const session = localStorage.getItem('voltEdgeSession');
                     if(session) { this.user = JSON.parse(session); this.loadOrders(); }
                     setInterval(() => this.loadOrders(), 5000);
+                },
+
+                async handleAuth() {
+                    const endpoint = this.authMode === 'register' ? '/api/register' : '/api/login';
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(this.authForm)
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        this.user = data.user;
+                        localStorage.setItem('voltEdgeSession', JSON.stringify(this.user));
+                        this.loadOrders();
+                    } else alert(data.error);
                 },
 
                 async loadOrders() {
@@ -172,9 +208,20 @@
                 },
 
                 async deleteOrder(id) {
-                    if(!confirm("Delete this order?")) return;
+                    if(!confirm("Delete order?")) return;
                     await fetch(`/api/orders/${id}`, { method: 'DELETE' });
                     this.adminFetch();
+                },
+
+                async leaveComment(id) {
+                    const msg = prompt("Message to Admin:");
+                    if(!msg) return;
+                    await fetch(`/api/orders/${id}/feedback`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ feedback: msg })
+                    });
+                    this.loadOrders();
                 },
 
                 adminLogin() {
@@ -182,7 +229,7 @@
                         this.view = 'admin';
                         this.showAdminModal = false;
                         this.adminFetch();
-                    } else alert("Wrong Password");
+                    } else alert("Invalid Password");
                 },
 
                 logout() { localStorage.removeItem('voltEdgeSession'); location.reload(); }
