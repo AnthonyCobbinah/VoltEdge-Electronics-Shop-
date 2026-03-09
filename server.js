@@ -10,8 +10,13 @@ const DB_FILE = path.join(__dirname, 'db.json');
 
 // Initialize Database structure if it doesn't exist
 async function initDB() {
-    if (!await fs.pathExists(DB_FILE)) {
-        await fs.writeJson(DB_FILE, { users: [], orders: [] });
+    try {
+        if (!await fs.pathExists(DB_FILE)) {
+            await fs.writeJson(DB_FILE, { users: [], orders: [] });
+            console.log("📦 New Database created.");
+        }
+    } catch (err) {
+        console.error("Failed to initialize database:", err);
     }
 }
 initDB();
@@ -21,6 +26,7 @@ const saveData = async (data) => await fs.writeJson(DB_FILE, data, { spaces: 2 }
 
 app.use(cors());
 app.use(bodyParser.json());
+// Ensure your images (ssd-256.jpg, etc.) are inside this 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- AUTH ENDPOINTS ---
@@ -58,7 +64,6 @@ app.post('/api/orders', async (req, res) => {
     const { phone, itemName, price } = req.body;
     const data = await getData();
     
-    // The Critical Fix: Validation against db.json
     const user = data.users.find(u => u.phone === phone.trim());
     if (!user) return res.status(403).json({ error: "Unauthorized: Please register first" });
 
@@ -94,8 +99,27 @@ app.post('/api/admin/verify', async (req, res) => {
 app.patch('/api/orders/:id', async (req, res) => {
     const data = await getData();
     const order = data.orders.find(o => o.id === parseInt(req.params.id));
-    if (order) { order.confirmed = true; await saveData(data); res.json({ success: true }); }
-    else res.status(404).send();
+    if (order) { 
+        order.confirmed = true; 
+        await saveData(data); 
+        res.json({ success: true }); 
+    } else {
+        res.status(404).send();
+    }
+});
+
+// Optional: Admin Delete Endpoint to clear clutter
+app.delete('/api/orders/:id', async (req, res) => {
+    const data = await getData();
+    const initialLength = data.orders.length;
+    data.orders = data.orders.filter(o => o.id !== parseInt(req.params.id));
+    
+    if (data.orders.length < initialLength) {
+        await saveData(data);
+        res.json({ success: true });
+    } else {
+        res.status(404).send();
+    }
 });
 
 app.listen(PORT, () => console.log(`🚀 VoltEdge Server running on http://localhost:${PORT}`));
