@@ -1,7 +1,7 @@
 {
   "name": "voltedge-electronics",
-  "version": "1.7.0",
-  "description": "VoltEdge Electronics - Hardware Store with Admin Confirmation, Customer Feedback, and File-Based Storage",
+  "version": "1.8.0",
+  "description": "VoltEdge Electronics - Hardware Store with Admin Deletion, Out-of-Stock Status, and Violet UI",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
@@ -21,11 +21,10 @@
   "keywords": [
     "electronics",
     "hardware-store",
+    "order-deletion",
+    "inventory-management",
     "express",
-    "order-confirmation",
-    "customer-feedback",
-    "persistent-storage",
-    "local-assets"
+    "persistent-storage"
   ],
   "author": "VoltEdge Team",
   "license": "ISC"
