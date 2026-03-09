@@ -8,7 +8,7 @@ const app = express();
 const PORT = 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
 
-// Initialize Database structure if it doesn't exist
+// Initialize Database structure
 async function initDB() {
     try {
         if (!await fs.pathExists(DB_FILE)) {
@@ -26,7 +26,7 @@ const saveData = async (data) => await fs.writeJson(DB_FILE, data, { spaces: 2 }
 
 app.use(cors());
 app.use(bodyParser.json());
-// Ensure your images (ssd-256.jpg, etc.) are inside this 'public' folder
+// Ensure your images (ssd-256.jpg, HP-Pavilion-15.jpg, etc.) are in this folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- AUTH ENDPOINTS ---
@@ -69,11 +69,12 @@ app.post('/api/orders', async (req, res) => {
 
     const newOrder = { 
         id: Date.now(), 
-        customer: user.name, 
-        phone: user.phone, 
+        customerName: user.name, // Added for Admin Dashboard
+        customerPhone: user.phone, // Added for Admin Dashboard
         itemName, 
         price, 
         confirmed: false, 
+        feedback: "", // Initialize empty feedback
         timestamp: new Date().toLocaleString('en-GB') 
     };
     
@@ -82,43 +83,49 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json(newOrder);
 });
 
+// Add feedback/comment to an order
+app.patch('/api/orders/:id/feedback', async (req, res) => {
+    const { feedback } = req.body;
+    const data = await getData();
+    const order = data.orders.find(o => o.id === parseInt(req.params.id));
+    
+    if (order && order.confirmed) {
+        order.feedback = feedback;
+        await saveData(data);
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ error: "Order not found or not confirmed yet" });
+    }
+});
+
 app.get('/api/my-orders/:phone', async (req, res) => {
     const data = await getData();
-    res.json(data.orders.filter(o => o.phone === req.params.phone));
+    const myOrders = data.orders.filter(o => o.customerPhone === req.params.phone);
+    res.json(myOrders);
 });
 
 // --- ADMIN ENDPOINTS ---
 
 app.post('/api/admin/verify', async (req, res) => {
-    if (req.body.password === "1234") {
+    // Updated password to match your request
+    if (req.body.password === "G1234") {
         const data = await getData();
         res.json({ success: true, orders: data.orders });
-    } else res.status(401).json({ success: false });
+    } else {
+        res.status(401).json({ success: false, error: "Invalid Admin Password" });
+    }
 });
 
-app.patch('/api/orders/:id', async (req, res) => {
+app.patch('/api/orders/:id/confirm', async (req, res) => {
     const data = await getData();
     const order = data.orders.find(o => o.id === parseInt(req.params.id));
+    
     if (order) { 
         order.confirmed = true; 
         await saveData(data); 
         res.json({ success: true }); 
     } else {
-        res.status(404).send();
-    }
-});
-
-// Optional: Admin Delete Endpoint to clear clutter
-app.delete('/api/orders/:id', async (req, res) => {
-    const data = await getData();
-    const initialLength = data.orders.length;
-    data.orders = data.orders.filter(o => o.id !== parseInt(req.params.id));
-    
-    if (data.orders.length < initialLength) {
-        await saveData(data);
-        res.json({ success: true });
-    } else {
-        res.status(404).send();
+        res.status(404).json({ error: "Order not found" });
     }
 });
 
