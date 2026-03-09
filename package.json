@@ -1,7 +1,7 @@
 {
   "name": "voltedge-electronics",
-  "version": "1.5.0",
-  "description": "VoltEdge Electronics - Hardware Store with Persistent File-Based Storage",
+  "version": "1.6.0",
+  "description": "VoltEdge Electronics - Hardware Store with Persistent File-Based Storage and Local Image Assets",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
@@ -23,7 +23,8 @@
     "hardware-store",
     "express",
     "persistent-storage",
-    "order-tracking"
+    "order-tracking",
+    "local-assets"
   ],
   "author": "VoltEdge Team",
   "license": "ISC"
