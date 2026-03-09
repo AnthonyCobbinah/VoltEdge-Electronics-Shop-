@@ -7,147 +7,84 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234"; 
-
-// Database file path
 const DB_FILE = path.join(__dirname, 'db.json');
 
 // Initialize Database
 async function initDB() {
-    try {
-        if (!await fs.pathExists(DB_FILE)) {
-            await fs.writeJson(DB_FILE, { users: [], orders: [] });
-            console.log("📂 Database created: db.json");
-        }
-    } catch (err) {
-        console.error("❌ Database Init Error:", err);
+    if (!await fs.pathExists(DB_FILE)) {
+        await fs.writeJson(DB_FILE, { users: [], orders: [] });
     }
 }
 initDB();
 
-// Helper functions
 const getData = async () => await fs.readJson(DB_FILE);
 const saveData = async (data) => await fs.writeJson(DB_FILE, data, { spaces: 2 });
 
-// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-/** * API Endpoints */
-
-// 1. User Registration (Matches HTML handleAuth)
+// REGISTER: Saves user to db.json
 app.post('/api/register', async (req, res) => {
     const { name, phone } = req.body;
-    if (!name || !phone) return res.status(400).json({ error: "Name and Phone required" });
-
     const data = await getData();
-    const phoneClean = phone.trim();
+    const cleanPhone = phone.trim();
     
-    if (data.users.find(u => u.phone === phoneClean)) {
-        return res.status(409).json({ error: "Phone number already registered" });
+    if (data.users.find(u => u.phone === cleanPhone)) {
+        return res.status(409).json({ error: "Phone already exists" });
     }
 
-    const newUser = { name: name.trim(), phone: phoneClean };
+    const newUser = { name: name.trim(), phone: cleanPhone };
     data.users.push(newUser);
     await saveData(data);
-    
-    console.log(`👤 New User Registered: ${name}`);
-    res.status(201).json({ message: "Success", user: newUser });
+    res.status(201).json({ user: newUser });
 });
 
-// 2. User Login
+// LOGIN: Checks db.json
 app.post('/api/login', async (req, res) => {
-    const { name, phone } = req.body;
+    const { phone } = req.body;
     const data = await getData();
-    const user = data.users.find(u => 
-        u.phone === phone.trim() && 
-        u.name.toLowerCase() === name.trim().toLowerCase()
-    );
-
-    if (user) {
-        res.json({ success: true, user });
-    } else {
-        res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
+    const user = data.users.find(u => u.phone === phone.trim());
+    
+    if (user) res.json({ success: true, user });
+    else res.status(401).json({ error: "User not found. Please register." });
 });
 
-// 3. Place Order (Matches HTML placeOrder)
+// ORDERS: Validates user against db.json
 app.post('/api/orders', async (req, res) => {
-    const { customer, phone, itemName, price } = req.body;
+    const { phone, itemName, price } = req.body;
     const data = await getData();
+    const user = data.users.find(u => u.phone === phone.trim());
 
-    // Verification check
-    const validUser = data.users.find(u => u.phone === phone.trim());
-    if (!validUser) return res.status(403).json({ error: "Unauthorized: Please register first" });
+    if (!user) return res.status(403).json({ error: "Unauthorized: Please register first" });
 
     const newOrder = { 
-        id: Date.now(), 
-        customer: validUser.name, 
-        phone: validUser.phone, 
-        itemName,
-        price,
-        confirmed: false,
-        timestamp: new Date().toLocaleString('en-GB', { 
-            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-        }) 
+        id: Date.now(), customer: user.name, phone: user.phone, 
+        itemName, price, confirmed: false, 
+        timestamp: new Date().toLocaleString('en-GB') 
     };
-    
-    data.orders.unshift(newOrder); 
+    data.orders.unshift(newOrder);
     await saveData(data);
-    console.log(`🛒 Order Placed: ${itemName} by ${customer}`);
     res.status(201).json(newOrder);
 });
 
-// 4. Get Customer Orders (Matches HTML loadOrders)
 app.get('/api/my-orders/:phone', async (req, res) => {
     const data = await getData();
-    const myOrders = data.orders.filter(o => o.phone === req.params.phone);
-    res.json(myOrders);
+    res.json(data.orders.filter(o => o.phone === req.params.phone));
 });
 
-// 5. Admin Verification & Data Fetch (Matches HTML adminLogin)
 app.post('/api/admin/verify', async (req, res) => {
-    const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
+    if (req.body.password === "1234") {
         const data = await getData();
-        res.json({ 
-            success: true, 
-            orders: data.orders, 
-            userCount: data.users.length 
-        });
-    } else {
-        res.status(401).json({ success: false, message: "Denied" });
-    }
+        res.json({ success: true, orders: data.orders });
+    } else res.status(401).json({ success: false });
 });
 
-// 6. Admin Order Confirmation (Matches HTML confirmOrder)
 app.patch('/api/orders/:id', async (req, res) => {
-    const { password } = req.body;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
-
     const data = await getData();
-    const orderId = parseInt(req.params.id);
-    const orderIndex = data.orders.findIndex(o => o.id === orderId);
-    
-    if (orderIndex !== -1) {
-        data.orders[orderIndex].confirmed = true;
-        await saveData(data);
-        console.log(`✅ Order ${orderId} confirmed by Admin`);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ error: "Order not found" });
-    }
+    const order = data.orders.find(o => o.id === parseInt(req.params.id));
+    if (order) { order.confirmed = true; await saveData(data); res.json({ success: true }); }
+    else res.status(404).send();
 });
 
-// Serve frontend
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`-------------------------------------------`);
-    console.log(`⚡ VoltEdge Server: http://localhost:${PORT}`);
-    console.log(`📂 Storage: db.json (Auto-Sync)`);
-    console.log(`-------------------------------------------`);
-});
+app.listen(PORT, () => console.log(`🚀 Server on http://localhost:${PORT}`));
